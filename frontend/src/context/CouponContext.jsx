@@ -1,118 +1,206 @@
-import React, { createContext, useReducer, useContext } from "react";
+import { createContext, useState, useContext } from "react";
+import api from "../api/api";
 
-// Initial state
-const initialState = {
-  adminInfo: localStorage.getItem("adminInfo")
-    ? JSON.parse(localStorage.getItem("adminInfo"))
-    : null,
-  loading: false,
-  error: null,
-  coupons: [],
-  claims: [],
-  nextCoupon: null,
-  message: null,
+export const CouponContext = createContext();
+
+export const useCouponContext = () => {
+  const context = useContext(CouponContext);
+
+  if (!context) {
+    throw new Error("useCouponContext must be used within a CouponProvider");
+  }
+
+  return context;
 };
 
-// Create context
-const CouponContext = createContext();
-
-// Reducer function
-function couponReducer(state, action) {
-  switch (action.type) {
-    case "REQUEST_START":
-      return { ...state, loading: true, error: null };
-    case "REQUEST_FAIL":
-      return { ...state, loading: false, error: action.payload };
-    case "ADMIN_LOGIN_SUCCESS":
-      return {
-        ...state,
-        loading: false,
-        adminInfo: action.payload,
-      };
-    case "ADMIN_LOGOUT":
-      return {
-        ...state,
-        adminInfo: null,
-      };
-    case "GET_COUPONS_SUCCESS":
-      return {
-        ...state,
-        loading: false,
-        coupons: action.payload,
-      };
-    case "GET_CLAIMS_SUCCESS":
-      return {
-        ...state,
-        loading: false,
-        claims: action.payload,
-      };
-    case "GET_NEXT_COUPON_SUCCESS":
-      return {
-        ...state,
-        loading: false,
-        nextCoupon: action.payload,
-      };
-    case "COUPON_CLAIM_SUCCESS":
-      return {
-        ...state,
-        loading: false,
-        message: action.payload.message,
-        nextCoupon: action.payload.coupon,
-      };
-    case "ADD_COUPON_SUCCESS":
-      return {
-        ...state,
-        loading: false,
-        coupons: [...state.coupons, action.payload],
-      };
-    case "UPDATE_COUPON_SUCCESS":
-      return {
-        ...state,
-        loading: false,
-        coupons: state.coupons.map((coupon) =>
-          coupon._id === action.payload._id ? action.payload : coupon
-        ),
-      };
-    case "DELETE_COUPON_SUCCESS":
-      return {
-        ...state,
-        loading: false,
-        coupons: state.coupons.filter(
-          (coupon) => coupon._id !== action.payload
-        ),
-      };
-    case "CLEAR_MESSAGE":
-      return {
-        ...state,
-        message: null,
-      };
-    case "CLEAR_ERROR":
-      return {
-        ...state,
-        error: null,
-      };
-    default:
-      return state;
-  }
-}
-
-// Provider component
 export const CouponProvider = ({ children }) => {
-  const [state, dispatch] = useReducer(couponReducer, initialState);
+  const [coupons, setCoupons] = useState([]);
+  const [claims, setClaims] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [notification, setNotification] = useState({ message: "", type: "" });
+
+  // Get all coupons (admin)
+  const getCoupons = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get("/coupons");
+      setCoupons(data);
+      setLoading(false);
+      return { success: true, data };
+    } catch (error) {
+      setError(error.response?.data?.message || "Failed to fetch coupons");
+      setLoading(false);
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to fetch coupons",
+      };
+    }
+  };
+
+  // Get next available coupon (public)
+  const getNextCoupon = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get("/coupons/next");
+      setLoading(false);
+      return { success: true, data };
+    } catch (error) {
+      const message =
+        error.response?.data?.message || "Failed to get next coupon";
+      setError(message);
+      setLoading(false);
+      return { success: false, message };
+    }
+  };
+
+  // Claim coupon as guest
+  const claimCouponAsGuest = async (couponId) => {
+    setLoading(true);
+    try {
+      const { data } = await api.post(`/coupons/guest-claim/${couponId}`);
+      setNotification({
+        message: data.message || "Coupon claimed successfully!",
+        type: "success",
+      });
+      setLoading(false);
+      return { success: true, data };
+    } catch (error) {
+      const message = error.response?.data?.message || "Failed to claim coupon";
+      setNotification({ message, type: "error" });
+      setLoading(false);
+      return { success: false, message };
+    }
+  };
+
+  // Claim coupon as registered user
+  const claimCouponAsUser = async (couponId) => {
+    setLoading(true);
+    try {
+      const { data } = await api.post(`/coupons/claim/${couponId}`);
+      setNotification({
+        message: data.message || "Coupon claimed successfully!",
+        type: "success",
+      });
+      setLoading(false);
+      return { success: true, data };
+    } catch (error) {
+      const message = error.response?.data?.message || "Failed to claim coupon";
+      setNotification({ message, type: "error" });
+      setLoading(false);
+      return { success: false, message };
+    }
+  };
+
+  // Create coupon (admin)
+  const createCoupon = async (couponData) => {
+    setLoading(true);
+    try {
+      const { data } = await api.post("/coupons", couponData);
+      setCoupons([data, ...coupons]);
+      setNotification({
+        message: "Coupon created successfully!",
+        type: "success",
+      });
+      setLoading(false);
+      return { success: true, data };
+    } catch (error) {
+      const message =
+        error.response?.data?.message || "Failed to create coupon";
+      setNotification({ message, type: "error" });
+      setLoading(false);
+      return { success: false, message };
+    }
+  };
+
+  // Update coupon (admin)
+  const updateCoupon = async (id, couponData) => {
+    setLoading(true);
+    try {
+      const { data } = await api.put(`/coupons/${id}`, couponData);
+      setCoupons(coupons.map((coupon) => (coupon._id === id ? data : coupon)));
+      setNotification({
+        message: "Coupon updated successfully!",
+        type: "success",
+      });
+      setLoading(false);
+      return { success: true, data };
+    } catch (error) {
+      const message =
+        error.response?.data?.message || "Failed to update coupon";
+      setNotification({ message, type: "error" });
+      setLoading(false);
+      return { success: false, message };
+    }
+  };
+
+  // Delete coupon (admin)
+  const deleteCoupon = async (id) => {
+    setLoading(true);
+    try {
+      await api.delete(`/coupons/${id}`);
+      setCoupons(coupons.filter((coupon) => coupon._id !== id));
+      setNotification({
+        message: "Coupon deleted successfully!",
+        type: "success",
+      });
+      setLoading(false);
+      return { success: true };
+    } catch (error) {
+      const message =
+        error.response?.data?.message || "Failed to delete coupon";
+      setNotification({ message, type: "error" });
+      setLoading(false);
+      return { success: false, message };
+    }
+  };
+
+  // Get claim history (admin)
+  const getClaimHistory = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get("/coupons/claims");
+      setClaims(data);
+      setLoading(false);
+      return { success: true, data };
+    } catch (error) {
+      setError(
+        error.response?.data?.message || "Failed to fetch claim history"
+      );
+      setLoading(false);
+      return {
+        success: false,
+        message:
+          error.response?.data?.message || "Failed to fetch claim history",
+      };
+    }
+  };
+
+  // Clear notification
+  const clearNotification = () => {
+    setNotification({ message: "", type: "" });
+  };
 
   return (
     <CouponContext.Provider
       value={{
-        ...state,
-        dispatch,
+        coupons,
+        claims,
+        loading,
+        error,
+        notification,
+        getNextCoupon,
+        claimCouponAsGuest,
+        claimCouponAsUser,
+        getCoupons,
+        createCoupon,
+        updateCoupon,
+        deleteCoupon,
+        getClaimHistory,
+        clearNotification,
       }}
     >
       {children}
     </CouponContext.Provider>
   );
-};
-
-// Custom hook to use the context
-export const useCouponContext = () => {
-  return useContext(CouponContext);
 };

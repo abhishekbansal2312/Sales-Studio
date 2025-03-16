@@ -1,7 +1,10 @@
 const jwt = require("jsonwebtoken");
+const asyncHandler = require("express-async-handler");
 const Admin = require("../models/Admin");
+const User = require("../models/User");
 
-const protect = async (req, res, next) => {
+// Protect routes for both admins and regular users
+const protect = asyncHandler(async (req, res, next) => {
   let token;
 
   if (
@@ -13,9 +16,23 @@ const protect = async (req, res, next) => {
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      req.admin = await Admin.findById(decoded.id).select("-password");
+      // Check if token belongs to admin
+      const admin = await Admin.findById(decoded.id).select("-password");
+      if (admin) {
+        req.admin = admin;
+        req.isAdmin = true;
+        return next();
+      }
 
-      next();
+      // Check if token belongs to user
+      const user = await User.findById(decoded.id).select("-password");
+      if (user) {
+        req.user = user;
+        return next();
+      }
+
+      res.status(401);
+      throw new Error("Not authorized, invalid token");
     } catch (error) {
       console.error(error);
       res.status(401);
@@ -27,6 +44,16 @@ const protect = async (req, res, next) => {
     res.status(401);
     throw new Error("Not authorized, no token");
   }
+});
+
+// Admin only middleware
+const admin = (req, res, next) => {
+  if (req.admin && req.isAdmin) {
+    next();
+  } else {
+    res.status(401);
+    throw new Error("Not authorized as an admin");
+  }
 };
 
-module.exports = { protect };
+module.exports = { protect, admin };

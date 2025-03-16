@@ -1,116 +1,129 @@
-import React, { useState } from "react";
-import axios from "../api/api"; // Adjust the path to your API configuration file
-import { useCouponContext } from "../context/CouponContext";
+import { useState, useEffect } from "react";
 
-export default function CouponForm() {
-  const { dispatch } = useCouponContext();
-  const [formData, setFormData] = useState({
-    code: "",
-    description: "",
-    expiryDate: "",
-    value: "",
-    isPercentage: true,
-  });
-
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+const CouponForm = ({ onSubmit, initialData, buttonText = "Save" }) => {
+  const [code, setCode] = useState("");
+  const [discount, setDiscount] = useState("");
+  const [description, setDescription] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
+  const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState("");
 
-  // Handle input changes
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value,
+  useEffect(() => {
+    if (initialData) {
+      setCode(initialData.code || "");
+      setDiscount(initialData.discount || "");
+      setDescription(initialData.description || "");
+      setExpiryDate(
+        initialData.expiryDate
+          ? new Date(initialData.expiryDate).toISOString().split("T")[0]
+          : ""
+      );
+      setIsActive(
+        initialData.isActive !== undefined ? initialData.isActive : true
+      );
+    }
+  }, [initialData]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    // Validation
+    if (!code || !discount) {
+      setError("Please enter both code and discount amount");
+      return;
+    }
+
+    setError("");
+
+    onSubmit({
+      code,
+      discount: Number(discount),
+      description,
+      expiryDate: expiryDate || null,
+      isActive,
     });
   };
 
-  // Handle form submission
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage("");
-    setError("");
-
-    try {
-      const { data } = await axios.post("/admin/coupons", formData);
-      setMessage("Coupon added successfully!");
-      dispatch({ type: "ADD_COUPON_SUCCESS", payload: data });
-
-      // Reset form after submission
-      setFormData({
-        code: "",
-        description: "",
-        expiryDate: "",
-        value: "",
-        isPercentage: true,
-      });
-    } catch (error) {
-      setError(error.response?.data?.message || "Failed to add coupon");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="max-w-md mx-auto mt-8 p-6 bg-gray-800 text-white rounded-lg shadow-lg">
-      <h2 className="text-2xl font-semibold mb-4">Add Coupon</h2>
-      {message && <p className="mb-4 text-green-400">{message}</p>}
-      {error && <p className="mb-4 text-red-400">{error}</p>}
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="coupon-form">
+      {error && <div className="error-message">{error}</div>}
+
+      <div className="form-group">
+        <label htmlFor="code">Coupon Code*</label>
         <input
           type="text"
-          name="code"
-          placeholder="Coupon Code"
-          value={formData.code}
-          onChange={handleChange}
+          id="code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          disabled={initialData?.isClaimed}
           required
-          className="w-full p-2 border border-gray-600 rounded bg-gray-700"
         />
-        <input
-          type="text"
-          name="description"
-          placeholder="Description"
-          value={formData.description}
-          onChange={handleChange}
-          required
-          className="w-full p-2 border border-gray-600 rounded bg-gray-700"
-        />
-        <input
-          type="date"
-          name="expiryDate"
-          value={formData.expiryDate}
-          onChange={handleChange}
-          required
-          className="w-full p-2 border border-gray-600 rounded bg-gray-700"
-        />
+        {initialData?.isClaimed && (
+          <small className="form-text text-muted">
+            Code cannot be changed for claimed coupons
+          </small>
+        )}
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="discount">Discount Amount*</label>
         <input
           type="number"
-          name="value"
-          placeholder="Value"
-          value={formData.value}
-          onChange={handleChange}
+          id="discount"
+          value={discount}
+          onChange={(e) => setDiscount(e.target.value)}
+          min="0"
+          disabled={initialData?.isClaimed}
           required
-          className="w-full p-2 border border-gray-600 rounded bg-gray-700"
         />
-        <label className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            name="isPercentage"
-            checked={formData.isPercentage}
-            onChange={handleChange}
-            className="form-checkbox"
-          />
-          <span>Percentage Discount</span>
+        {initialData?.isClaimed && (
+          <small className="form-text text-muted">
+            Discount cannot be changed for claimed coupons
+          </small>
+        )}
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="description">Description</label>
+        <textarea
+          id="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows="3"
+          disabled={initialData?.isClaimed}
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="expiryDate">Expiry Date</label>
+        <input
+          type="date"
+          id="expiryDate"
+          value={expiryDate}
+          onChange={(e) => setExpiryDate(e.target.value)}
+          min={new Date().toISOString().split("T")[0]}
+          disabled={initialData?.isClaimed}
+        />
+      </div>
+
+      <div className="form-check">
+        <input
+          type="checkbox"
+          id="isActive"
+          checked={isActive}
+          onChange={(e) => setIsActive(e.target.checked)}
+          className="form-check-input"
+        />
+        <label htmlFor="isActive" className="form-check-label">
+          Active
         </label>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md"
-        >
-          {loading ? "Adding..." : "Add Coupon"}
-        </button>
-      </form>
-    </div>
+      </div>
+
+      <button type="submit" className="btn btn-primary">
+        {buttonText}
+      </button>
+    </form>
   );
-}
+};
+
+export default CouponForm;

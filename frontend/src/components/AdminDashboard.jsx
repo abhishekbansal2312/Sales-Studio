@@ -1,94 +1,197 @@
-import React from "react";
+import { useState, useEffect, useContext } from "react";
+import { CouponContext } from "../context/CouponContext";
+import CouponForm from "./CouponForm";
+import CouponList from "./CouponList";
+import Notification from "./Notification";
 
-const AdminDashboard = ({ coupons, claims }) => {
-  // Calculate stats
-  const totalCoupons = coupons.length;
-  const activeCoupons = coupons.filter((coupon) => coupon.isActive).length;
-  const claimedCoupons = coupons.filter((coupon) => coupon.isClaimed).length;
-  const expiredCoupons = coupons.filter(
-    (coupon) => new Date(coupon.expiryDate) < new Date()
-  ).length;
+const AdminDashboard = () => {
+  const [activeSection, setActiveSection] = useState("coupons");
+  const [claims, setClaims] = useState([]);
+  const [showAddCouponForm, setShowAddCouponForm] = useState(false);
+  const [editCouponData, setEditCouponData] = useState(null);
 
-  // Get recent claims (last 5)
-  const recentClaims = claims.slice(0, 5);
+  const {
+    getCoupons,
+    coupons,
+    loading,
+    createCoupon,
+    updateCoupon,
+    deleteCoupon,
+    getClaimHistory,
+    notification,
+    clearNotification,
+  } = useContext(CouponContext);
 
-  // Format date
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+  useEffect(() => {
+    getCoupons();
+  }, []);
+
+  useEffect(() => {
+    if (activeSection === "claims") {
+      fetchClaimHistory();
+    }
+  }, [activeSection]);
+
+  useEffect(() => {
+    if (notification.message) {
+      const timer = setTimeout(() => {
+        clearNotification();
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [notification, clearNotification]);
+
+  const fetchClaimHistory = async () => {
+    const result = await getClaimHistory();
+    if (result.success) {
+      setClaims(result.data);
+    }
+  };
+
+  const handleAddCoupon = async (couponData) => {
+    const result = await createCoupon(couponData);
+    if (result.success) {
+      setShowAddCouponForm(false);
+    }
+  };
+
+  const handleUpdateCoupon = async (couponData) => {
+    const result = await updateCoupon(editCouponData._id, couponData);
+    if (result.success) {
+      setEditCouponData(null);
+    }
+  };
+
+  const handleDeleteCoupon = async (id) => {
+    if (window.confirm("Are you sure you want to delete this coupon?")) {
+      await deleteCoupon(id);
+    }
+  };
+
+  const handleEditCoupon = (coupon) => {
+    setEditCouponData(coupon);
+    setShowAddCouponForm(false);
   };
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
+    <div className="admin-dashboard">
+      {notification.message && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={clearNotification}
+        />
+      )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold text-gray-600">Total Coupons</h3>
-          <p className="text-3xl font-bold text-indigo-600">{totalCoupons}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold text-gray-600">
-            Active Coupons
-          </h3>
-          <p className="text-3xl font-bold text-green-600">{activeCoupons}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold text-gray-600">
-            Claimed Coupons
-          </h3>
-          <p className="text-3xl font-bold text-blue-600">{claimedCoupons}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold text-gray-600">
-            Expired Coupons
-          </h3>
-          <p className="text-3xl font-bold text-red-600">{expiredCoupons}</p>
+      <div className="dashboard-header">
+        <h1>Admin Dashboard</h1>
+
+        <div className="dashboard-nav">
+          <button
+            className={`nav-btn ${activeSection === "coupons" ? "active" : ""}`}
+            onClick={() => setActiveSection("coupons")}
+          >
+            Manage Coupons
+          </button>
+          <button
+            className={`nav-btn ${activeSection === "claims" ? "active" : ""}`}
+            onClick={() => setActiveSection("claims")}
+          >
+            Claim History
+          </button>
         </div>
       </div>
 
-      {/* Recent Claims */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Recent Claims</h2>
+      {activeSection === "coupons" && (
+        <div className="coupons-section">
+          <div className="section-header">
+            <h2>Coupon Management</h2>
 
-        {recentClaims.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white">
-              <thead>
-                <tr>
-                  <th className="py-2 px-4 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Coupon Code
-                  </th>
-                  <th className="py-2 px-4 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Claimed At
-                  </th>
-                  <th className="py-2 px-4 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    IP Address
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentClaims.map((claim) => (
-                  <tr key={claim._id}>
-                    <td className="py-2 px-4 border-b border-gray-200">
-                      {claim.coupon.code}
-                    </td>
-                    <td className="py-2 px-4 border-b border-gray-200">
-                      {formatDate(claim.claimedAt)}
-                    </td>
-                    <td className="py-2 px-4 border-b border-gray-200">
-                      {claim.ipAddress}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {!showAddCouponForm && !editCouponData && (
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowAddCouponForm(true)}
+              >
+                Add New Coupon
+              </button>
+            )}
           </div>
-        ) : (
-          <p className="text-gray-500">No claims yet.</p>
-        )}
-      </div>
+
+          {showAddCouponForm && (
+            <div className="form-container">
+              <h3>Add New Coupon</h3>
+              <CouponForm
+                onSubmit={handleAddCoupon}
+                onCancel={() => setShowAddCouponForm(false)}
+              />
+            </div>
+          )}
+
+          {editCouponData && (
+            <div className="form-container">
+              <h3>Edit Coupon</h3>
+              <CouponForm
+                couponData={editCouponData}
+                onSubmit={handleUpdateCoupon}
+                onCancel={() => setEditCouponData(null)}
+              />
+            </div>
+          )}
+
+          {!showAddCouponForm && !editCouponData && (
+            <CouponList
+              coupons={coupons}
+              loading={loading}
+              onEdit={handleEditCoupon}
+              onDelete={handleDeleteCoupon}
+            />
+          )}
+        </div>
+      )}
+
+      {activeSection === "claims" && (
+        <div className="claims-section">
+          <div className="section-header">
+            <h2>Claim History</h2>
+          </div>
+
+          {loading ? (
+            <div className="loading">Loading claim history...</div>
+          ) : (
+            <div className="claims-list">
+              {claims.length === 0 ? (
+                <p>No claims found.</p>
+              ) : (
+                <table className="claims-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Coupon</th>
+                      <th>Claimed On</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {claims.map((claim) => (
+                      <tr key={claim._id}>
+                        <td>{claim.user.name}</td>
+                        <td>{claim.coupon.code}</td>
+                        <td>
+                          {new Date(claim.claimedAt).toLocaleDateString()}
+                        </td>
+                        <td className={`status ${claim.status.toLowerCase()}`}>
+                          {claim.status}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

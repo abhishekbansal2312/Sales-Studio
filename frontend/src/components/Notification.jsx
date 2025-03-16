@@ -1,18 +1,23 @@
 import React from "react";
-import { useCouponContext } from "../context/CouponContext";
 
-const Notification = () => {
-  const { message, error } = useCouponContext();
+const Notification = ({ message, type, onClose }) => {
+  if (!message) return null;
 
-  if (!message && !error) return null;
+  const bgColor = type === "success" ? "bg-green-500" : "bg-red-500";
 
   return (
     <div
-      className={`fixed bottom-4 right-4 p-4 rounded-md shadow-lg transition-opacity duration-300 ${
-        message ? "bg-green-500 text-white" : "bg-red-500 text-white"
-      }`}
+      className={`fixed bottom-4 right-4 p-4 rounded-md shadow-lg transition-opacity duration-300 ${bgColor} text-white flex items-center justify-between`}
     >
-      <p>{message || error}</p>
+      <p>{message}</p>
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="ml-4 text-white hover:text-gray-200"
+        >
+          ×
+        </button>
+      )}
     </div>
   );
 };

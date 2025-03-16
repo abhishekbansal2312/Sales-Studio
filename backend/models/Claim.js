@@ -7,21 +7,25 @@ const claimSchema = mongoose.Schema(
       required: true,
       ref: "Coupon",
     },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
     ipAddress: {
       type: String,
       required: true,
     },
-    sessionId: {
-      type: String,
-      required: true,
-    },
-    userAgent: {
+    browserSession: {
       type: String,
       required: true,
     },
     claimedAt: {
       type: Date,
       default: Date.now,
+    },
+    isGuestClaim: {
+      type: Boolean,
+      default: true,
     },
   },
   {

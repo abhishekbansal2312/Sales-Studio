@@ -1,166 +1,104 @@
-import React, { useEffect, useState } from "react";
-import { toast } from "react-toastify";
+import { useContext } from "react";
+import { Link } from "react-router-dom";
+import { UserContext } from "../context/UserContext";
 import ClaimCoupon from "../components/ClaimCoupon";
-import CouponCard from "../components/CouponCard";
-import Notification from "../components/Notification";
-import { useCouponContext } from "../context/CouponContext";
-import api from "../api/api";
 
 const Home = () => {
-  const { loading, error, message, nextCoupon, dispatch } = useCouponContext();
-  const [availableCouponsCount, setAvailableCouponsCount] = useState(0);
-
-  useEffect(() => {
-    const fetchNextCoupon = async () => {
-      try {
-        dispatch({ type: "REQUEST_START" });
-        const { data } = await api.get("/coupons/next");
-        dispatch({
-          type: "GET_NEXT_COUPON_SUCCESS",
-          payload: data.coupon,
-        });
-      } catch (error) {
-        if (error.response && error.response.status === 429) {
-          // Rate limit reached
-          dispatch({
-            type: "REQUEST_FAIL",
-            payload: `You've already claimed a coupon. Please try again later.`,
-          });
-        } else if (error.response && error.response.status === 404) {
-          // No coupons available
-          dispatch({
-            type: "REQUEST_FAIL",
-            payload: "No coupons available at the moment.",
-          });
-        } else {
-          dispatch({
-            type: "REQUEST_FAIL",
-            payload: error.response?.data?.message || "Error fetching coupon.",
-          });
-        }
-      }
-    };
-
-    const fetchAvailableCouponsCount = async () => {
-      try {
-        const { data } = await api.get("/coupons");
-        setAvailableCouponsCount(data.count);
-      } catch (error) {
-        console.error("Error fetching available coupons count:", error);
-      }
-    };
-
-    fetchNextCoupon();
-    fetchAvailableCouponsCount();
-  }, [dispatch]);
-
-  useEffect(() => {
-    if (message) {
-      toast.success(message);
-      // Clear message after showing toast
-      setTimeout(() => {
-        dispatch({ type: "CLEAR_MESSAGE" });
-      }, 5000);
-    }
-  }, [message, dispatch]);
-
-  useEffect(() => {
-    if (error) {
-      toast.error(error);
-      // Clear error after showing toast
-      setTimeout(() => {
-        dispatch({ type: "CLEAR_ERROR" });
-      }, 5000);
-    }
-  }, [error, dispatch]);
-
-  const handleClaimCoupon = async () => {
-    if (!nextCoupon) return;
-
-    try {
-      dispatch({ type: "REQUEST_START" });
-      const { data } = await api.post(`/coupons/claim/${nextCoupon.code}`);
-      dispatch({
-        type: "COUPON_CLAIM_SUCCESS",
-        payload: {
-          message: data.message,
-          coupon: data.coupon,
-        },
-      });
-
-      // Update available coupons count
-      const { data: couponsData } = await api.get("/coupons");
-      setAvailableCouponsCount(couponsData.count);
-    } catch (error) {
-      if (error.response && error.response.status === 429) {
-        dispatch({
-          type: "REQUEST_FAIL",
-          payload: "You have already claimed a coupon. Please try again later.",
-        });
-      } else {
-        dispatch({
-          type: "REQUEST_FAIL",
-          payload: error.response?.data?.message || "Error claiming coupon.",
-        });
-      }
-    }
-  };
+  const { user } = useContext(UserContext);
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="max-w-4xl mx-auto py-8 px-4">
-        <header className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-indigo-700 mb-2">
-            Coupon Distribution App
+    <div className="min-h-screen bg-gray-50">
+      <section className="bg-gradient-to-r from-rose-500 to-rose-600 text-white py-16 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+            Welcome to Sales Studio
           </h1>
-          <p className="text-lg text-gray-600">
-            Claim your exclusive coupon below!
+          <p className="text-xl mb-8">
+            Discover exclusive discounts just for you!
           </p>
-          <p className="text-md text-gray-500 mt-2">
-            {availableCouponsCount > 0
-              ? `${availableCouponsCount} coupons available`
-              : "No coupons available at the moment"}
-          </p>
-        </header>
 
-        {loading ? (
-          <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-          </div>
-        ) : (
-          <>
-            {nextCoupon ? (
-              <div className="flex flex-col items-center">
-                <CouponCard
-                  coupon={nextCoupon}
-                  showCode={false}
-                  className="w-full max-w-md"
-                />
-                <div className="mt-6">
-                  <ClaimCoupon onClaim={handleClaimCoupon} />
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white p-6 rounded-lg shadow-md text-center">
-                <p className="text-gray-700">
-                  {error || "No coupons available at the moment."}
+          {!user && (
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link
+                to="/register"
+                className="bg-white text-rose-600 hover:bg-rose-100 font-medium px-6 py-3 rounded-lg transition duration-300 shadow-md"
+              >
+                Sign Up
+              </Link>
+              <Link
+                to="/login"
+                className="bg-rose-700 text-white hover:bg-rose-800 font-medium px-6 py-3 rounded-lg transition duration-300 shadow-md"
+              >
+                Log In
+              </Link>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="py-12 px-4 bg-white shadow-md">
+        <div className="max-w-4xl mx-auto">
+          <ClaimCoupon />
+        </div>
+      </section>
+
+      <section className="py-16 px-4">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl font-bold text-gray-800 text-center mb-12">
+            Why Sales Studio?
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300">
+              <div className="text-4xl mb-4 text-center">🎁</div>
+              <h3 className="text-xl font-semibold text-rose-600 mb-3">
+                Exclusive Deals
+              </h3>
+              <p className="text-gray-600">
+                Get access to unique discounts not available elsewhere.
+              </p>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300">
+              <div className="text-4xl mb-4 text-center">🔒</div>
+              <h3 className="text-xl font-semibold text-rose-600 mb-3">
+                Secure Claims
+              </h3>
+              <p className="text-gray-600">
+                Our system ensures fair distribution and prevents abuse.
+              </p>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300">
+              <div className="text-4xl mb-4 text-center">📱</div>
+              <h3 className="text-xl font-semibold text-rose-600 mb-3">
+                Easy Access
+              </h3>
+              <p className="text-gray-600">
+                Claim coupons with a single click, no complicated process.
+              </p>
+            </div>
+
+            {!user && (
+              <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300">
+                <div className="text-4xl mb-4 text-center">📊</div>
+                <h3 className="text-xl font-semibold text-rose-600 mb-3">
+                  Track Your Savings
+                </h3>
+                <p className="text-gray-600">
+                  <Link
+                    to="/register"
+                    className="text-rose-500 hover:text-rose-700 underline"
+                  >
+                    Create an account
+                  </Link>{" "}
+                  to save and manage your coupons.
                 </p>
               </div>
             )}
-          </>
-        )}
-
-        <Notification />
-
-        <div className="mt-12 text-center">
-          <a
-            href="/login"
-            className="text-indigo-600 hover:text-indigo-800 text-sm"
-          >
-            Admin Login
-          </a>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

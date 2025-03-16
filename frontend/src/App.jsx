@@ -1,57 +1,52 @@
-import React from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-
-// Pages
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { CouponProvider } from "./context/CouponContext";
+import { UserProvider } from "./context/UserContext";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Admin from "./pages/Admin";
-
-// Context
-import { CouponProvider, useCouponContext } from "./context/CouponContext";
-
-// Protected Route Component
-const ProtectedRoute = ({ children }) => {
-  const { adminInfo } = useCouponContext();
-
-  if (!adminInfo) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
-};
-
-function AppContent() {
-  return (
-    <Router>
-      <ToastContainer position="top-right" autoClose={5000} />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/admin/*"
-          element={
-            <ProtectedRoute>
-              <Admin />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-    </Router>
-  );
-}
+import Profile from "./pages/Profile";
+import Header from "./components/Header";
+import Footer from "./components/Footer";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
+import "./App.css";
 
 function App() {
   return (
-    <CouponProvider>
-      <AppContent />
-    </CouponProvider>
+    <Router>
+      <UserProvider>
+        <CouponProvider>
+          <div className="app-container">
+            <Header />
+            <main className="main-content">
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route
+                  path="/admin/*"
+                  element={
+                    <AdminRoute>
+                      <Admin />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </main>
+            <Footer />
+          </div>
+        </CouponProvider>
+      </UserProvider>
+    </Router>
   );
 }
 
